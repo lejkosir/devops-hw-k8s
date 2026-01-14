@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: taprav-fri
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ghcr.io/lejkosir/devops-hw-docker-backend:sha-8c13a21
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: "mysql"
+        - name: DB_USER
+          value: "user"
+        - name: DB_PASSWORD
+          value: "skrito123"
+        - name: DB_NAME
+          value: "taprav-fri"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
