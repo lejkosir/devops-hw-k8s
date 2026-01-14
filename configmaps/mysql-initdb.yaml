@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  namespace: taprav-fri
+data:
+  01-init.sql: |
+    CREATE USER IF NOT EXISTS 'user'@'%' IDENTIFIED BY 'skrito123';
+    GRANT ALL PRIVILEGES ON `taprav-fri`.* TO 'user'@'%';
+    FLUSH PRIVILEGES;  
+
+  taprav-fri.sql: |
+    SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+    SET time_zone = "+00:00";
+    START TRANSACTION;
+
+    CREATE DATABASE IF NOT EXISTS `taprav-fri` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+    USE `taprav-fri`;
+
+    -- ---------------------------
+    -- Table: events
+    -- ---------------------------
+    CREATE TABLE `events` (
+      `id` int(11) NOT NULL,
+      `slug` varchar(100) NOT NULL,
+      `title` varchar(150) NOT NULL,
+      `short_description` varchar(255) NOT NULL,
+      `full_description` text NOT NULL,
+      `event_date` datetime NOT NULL,
+      `capacity` int(11) NOT NULL,
+      `image_path` varchar(255) NOT NULL,
+      `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+      `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+    INSERT INTO `events` (`id`, `slug`, `title`, `short_description`, `full_description`, `event_date`, `capacity`, `image_path`, `created_at`, `updated_at`) VALUES
+    (1, 'pir-krompir', 'Pir in Krompir', 'Uživaj v najboljši kombinaciji!!!', 'Vabljeni na nepozaben večer ob skoraj mitski kombinaciji: pir (pivo) in krompir (domače pečen krompir).\r\nSprostite se v prijetnem ambientu, saj bodo lokalni glasbeniki poskrbeli za živo glasbo pod zvezdami.\r\nPoskusite različne sorte piva in uživajte v ročno rezanem krompirju, začinjenem z začimbami po tradicionalni recepturi.\r\nPrijavite se pravočasno, saj je število mest omejeno!', '2025-06-15 18:00:00', 100, 'uploads/events/evt_683cd3dee5ea52.83729631.png', '2025-06-01 18:03:19', '2025-06-02 00:27:42'),
+    (2, 'opazovanje-zvezd', 'Opazovanje zvezd', 'Romantika pod zvezdami.', 'Pridružite se nam na čudoviti zvezdni noči pod neomajnim nebom.\r\nS pomočjo izkušenega astronomskega društva boste z daljnogledom opazovali planetne sisteme, zvezdne gruče in galaksije.\r\nNe glede na to, ali ste začetnik ali izkušen ljubitelj astronomije, vas bodo naši vodniki popeljali skozi najbolj fascinantne kotičke galaksije.\r\nObvezna je rezervacija, saj je opazovanje omejeno na majhne skupine.', '2025-06-23 22:00:00', 100, 'uploads/events/evt_683cd4cecb85b5.37758189.png', '2025-06-01 18:03:19', '2025-06-02 00:31:42'),
+    (3, 'druzabni-vecer', 'Družabni večer', 'Večer družabnih iger za vse.', 'Se želite sprostiti ob zabavnih družabnih igrah? Naš Družabni večer je prava priložnost, da se zberete s prijatelji, družino ali celo popolnimi tujci.\r\nPrinesite svojo najljubšo igro ali poskusite eno izmed naših številnih družabnih iger, od klasičnih družinskih do strateških izzivov.\r\nVsak udeleženec prejme dobrodošlični priboljšek, ob 21. uri pa bomo organizirali mini turnir z drobnimi nagradami.\r\nČas je, da stopite iz cone udobja in zavrtite kocko!', '2025-07-03 20:00:00', 100, 'uploads/events/evt_683cd4e9bdb341.64513606.png', '2025-06-01 18:03:19', '2025-06-02 00:32:09'),
+    (4, 'uv-konferenca', 'UV konferenca', 'Vse o uporabniških vmesnikih.', 'UV konferenca je osrednji dogodek za vse, ki jih zanima uporabniška izkušnja (UX) in uporabniški vmesniki (UI).\r\nSpoznali boste najnovejše trende v oblikovanju aplikacij, brskanju po spletu in razvoju digitalnih produktov.\r\nGovorniki prihajajo iz vodilnih podjetij na področju tehnologije in bodo z vami delili praktične zgodbe, študije primerov in nasvete o tem, kako ustvariti intuitivne in estetsko dovršene vmesnike.\r\nKonferenca vključuje delavnice, panelne razprave ter Q&A seje. Obvezna je vnaprejšnja prijava.', '2025-08-22 09:00:00', 100, 'uploads/events/evt_683cd501db8a88.90214393.png', '2025-06-01 18:03:19', '2025-06-02 00:32:33');
+
+    -- ---------------------------
+    -- Table: reservations
+    -- ---------------------------
+    CREATE TABLE `reservations` (
+      `id` int(11) NOT NULL,
+      `user_id` int(11) NOT NULL,
+      `event_id` int(11) NOT NULL,
+      `quantity` int(11) NOT NULL,
+      `reserved_at` datetime NOT NULL DEFAULT current_timestamp()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+    INSERT INTO `reservations` (`id`, `user_id`, `event_id`, `quantity`, `reserved_at`) VALUES
+    (1, 1, 2, 6, '2025-06-01 21:41:50'),
+    (2, 1, 2, 6, '2025-06-01 21:41:55'),
+    (3, 1, 2, 6, '2025-06-01 21:43:39'),
+    (4, 1, 2, 1, '2025-06-02 00:44:02'),
+    (5, 1, 2, 1, '2025-06-02 00:45:51'),
+    (6, 1, 2, 1, '2025-06-02 00:46:31');
+
+    -- ---------------------------
+    -- Table: users
+    -- ---------------------------
+    CREATE TABLE `users` (
+      `id` int(11) NOT NULL,
+      `first_name` varchar(50) NOT NULL,
+      `last_name` varchar(50) NOT NULL,
+      `email` varchar(100) NOT NULL,
+      `password_hash` varchar(255) NOT NULL,
+      `is_admin` tinyint(1) NOT NULL DEFAULT 0,
+      `created_at` datetime NOT NULL DEFAULT current_timestamp()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+    INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password_hash`, `is_admin`, `created_at`) VALUES
+    (1, 'Admin', 'User', 'admin@example.com', '$2y$10$3jqPaFiJ/Ni/qza8WT3sc.loqTfxzeHziSH4CZYg0aH8uJTrtzmCa', 1, '2025-06-01 13:04:54'),
+    (2, 'Matej', 'Bokal', 'matej.bokal2@gmail.com', '$2y$10$MwCtgxoGpqABGaITxSag2eSLFdXxN14IbvaEl58t/GBiwG5oP3h6q', 0, '2025-06-01 23:51:04');
+
+    -- ---------------------------
+    -- Indexes
+    -- ---------------------------
+    ALTER TABLE `events`
+      ADD PRIMARY KEY (`id`),
+      ADD UNIQUE KEY `slug` (`slug`);
+
+    ALTER TABLE `reservations`
+      ADD PRIMARY KEY (`id`),
+      ADD KEY `user_id` (`user_id`),
+      ADD KEY `event_id` (`event_id`);
+
+    ALTER TABLE `users`
+      ADD PRIMARY KEY (`id`),
+      ADD UNIQUE KEY `email` (`email`);
+
+    -- ---------------------------
+    -- AUTO INCREMENT
+    -- ---------------------------
+    ALTER TABLE `events`
+      MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+    ALTER TABLE `reservations`
+      MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+    ALTER TABLE `users`
+      MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+    -- ---------------------------
+    -- Foreign Keys
+    -- ---------------------------
+    ALTER TABLE `reservations`
+      ADD CONSTRAINT `fk_reservations_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE,
+      ADD CONSTRAINT `fk_reservations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+    COMMIT;
