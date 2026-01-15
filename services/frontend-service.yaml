@@ -1,23 +1,12 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
   name: frontend
   namespace: taprav-fri
 spec:
-  replicas: 3
+  type: ClusterIP
   selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-    spec:
-      containers:
-      - name: frontend
-        image: ghcr.io/lejkosir/devops-hw-docker-frontend:sha-8c13a21
-        ports:
-        - containerPort: 3000
-        env:
-        - name: BACKEND_URL
-          value: "http://backend/taprav-fri/api"
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
