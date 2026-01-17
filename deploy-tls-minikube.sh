@@ -11,22 +11,14 @@ if ! command -v minikube &> /dev/null; then
     exit 1
 fi
 
-# Check minikube status
-if ! minikube status &>/dev/null; then
-    echo "Error: minikube is not running"
-    echo "Try: minikube start"
-    exit 1
-fi
-
-echo "✓ minikube is running"
-
-# Use minikube's kubectl wrapper
+# Use minikube's kubectl wrapper (works even if minikube status fails)
 KUBECTL="minikube kubectl --"
 
 # Test connection
 echo "Testing connection..."
 if ! $KUBECTL get nodes &>/dev/null; then
     echo "Error: Cannot connect to minikube cluster"
+    echo "Note: minikube kubectl -- should work even if 'minikube status' fails"
     exit 1
 fi
 
