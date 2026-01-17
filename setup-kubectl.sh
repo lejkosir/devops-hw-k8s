@@ -81,10 +81,20 @@ echo "=== Trying to access partner's config with sudo ==="
 if sudo test -f /home/lkosir/.kube/config; then
     echo "✓ Can access partner's config with sudo!"
     sudo cp /home/lkosir/.kube/config ~/.kube/config
-    chmod 600 ~/.kube/config
+    # Try to set permissions, but continue even if it fails
+    chmod 600 ~/.kube/config 2>/dev/null || sudo chmod 600 ~/.kube/config 2>/dev/null || echo "⚠ Could not change permissions, but continuing..."
+    
+    echo "Testing kubectl..."
     if kubectl get nodes &>/dev/null; then
         echo "✓ SUCCESS! kubectl is working!"
         exit 0
+    else
+        echo "⚠ Config copied but connection test failed. Trying with sudo kubectl..."
+        if sudo kubectl get nodes &>/dev/null; then
+            echo "✓ SUCCESS! Use 'sudo kubectl' for commands!"
+            echo "You can create an alias: alias kubectl='sudo kubectl'"
+            exit 0
+        fi
     fi
 fi
 
