@@ -26,22 +26,34 @@ You need to run these commands on a machine that has:
 - Access to your Kubernetes cluster (kubeconfig configured)
 - Appropriate permissions (ClusterIssuer needs cluster admin)
 
-**Options:**
-1. **SSH into the cluster node/control plane** (if you have SSH access)
-2. **Your local machine** (if you have kubeconfig configured)
-3. **Bastion/jump host** (if provided by your university)
+**Deployment via SSH (recommended if you have SSH access):**
 
-**Quick deployment (using scripts):**
+1. **SSH into the VM:**
+   ```bash
+   ssh your-username@devops-sk-07.lrk.si
+   # or whatever your SSH connection command is
+   ```
 
-**Linux/Mac:**
-```bash
-bash deploy-tls.sh
-```
+2. **Clone your repository (if using git):**
+   ```bash
+   git clone <your-repo-url>
+   cd DN03-kubernetes
+   ```
+   
+   **OR transfer files via SCP from your local machine:**
+   ```bash
+   # From your local Windows machine (PowerShell)
+   scp -r . your-username@devops-sk-07.lrk.si:~/DN03-kubernetes/
+   ```
 
-**Windows PowerShell:**
-```powershell
-powershell -ExecutionPolicy Bypass -File deploy-tls.ps1
-```
+3. **Run the deployment script:**
+   ```bash
+   bash deploy-tls.sh
+   ```
+
+**Alternative: Manual deployment on VM:**
+
+If you prefer to run commands manually after SSH:
 
 **Manual deployment:**
 
