@@ -1,0 +1,8 @@
+# Ignore actual secret files (only templates should be committed)
+secrets/*.yaml
+!secrets/*.yaml.template
+!secrets/*.example.yaml
+
+# Ignore script outputs and temporary files
+*.log
+*.tmp
