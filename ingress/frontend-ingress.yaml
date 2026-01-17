@@ -5,7 +5,15 @@ metadata:
   namespace: taprav-fri
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    # Force HTTPS redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Cert-manager will automatically provision the certificate
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  tls:
+  - hosts:
+    - devops-sk-07.lrk.si
+    secretName: frontend-tls-secret
   rules:
   - host: devops-sk-07.lrk.si
     http:

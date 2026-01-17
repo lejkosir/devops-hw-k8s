@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Let's Encrypt production server
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address for Let's Encrypt account
+    email: mb2889@student.uni-lj.si
+    # Private key for ACME account
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    # HTTP-01 challenge provider (works since port 80 is accessible)
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
