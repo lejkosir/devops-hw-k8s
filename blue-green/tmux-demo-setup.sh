@@ -26,7 +26,7 @@ tmux send-keys "watch -n 1 'kubectl get pods -n taprav-fri -l app=frontend'" C-m
 # Setup pane 1: Monitor service responses
 tmux select-pane -t "$SESSION:0.1"
 tmux send-keys "echo 'Monitoring service responses...'" C-m
-tmux send-keys "while true; do echo -n \"\$(date +%H:%M:%S) - \"; curl -s -o /dev/null -w \"HTTP %{http_code}\n\" https://devops-sk-07.lrk.si; sleep 1; done" C-m
+tmux send-keys "while true; do echo -n \"\$(date +%H:%M:%S) - \"; curl -s -o /dev/null -w \"HTTP %{http_code}\n\" http://devops-sk-07.lrk.si; sleep 1; done" C-m
 
 # Setup pane 2: Ready for commands
 tmux select-pane -t "$SESSION:0.2"

@@ -25,7 +25,7 @@
    
    # Setup pane 1 (bottom-left): Monitor service
    tmux select-pane -t 1
-   tmux send-keys "while true; do echo -n \"\$(date +%H:%M:%S) - \"; curl -s -o /dev/null -w \"HTTP %{http_code}\n\" https://devops-sk-07.lrk.si; sleep 1; done" C-m
+   tmux send-keys "while true; do echo -n \"\$(date +%H:%M:%S) - \"; curl -s -o /dev/null -w \"HTTP %{http_code}\n\" http://devops-sk-07.lrk.si; sleep 1; done" C-m
    
    # Setup pane 2 (bottom-right): Commands
    tmux select-pane -t 2
@@ -61,7 +61,7 @@
 
 1. **Open 3 terminal windows side by side:**
    - Window 1: `watch -n 1 'kubectl get pods -n taprav-fri -l app=frontend'`
-   - Window 2: `while true; do curl -s -o /dev/null -w "%{http_code}\n" https://devops-sk-07.lrk.si; sleep 1; done`
+   - Window 2: `while true; do curl -s -o /dev/null -w "%{http_code}\n" http://devops-sk-07.lrk.si; sleep 1; done`
    - Window 3: Commands (cd ~/dn03)
 
 2. **Start screen recorder:**
@@ -111,7 +111,7 @@ watch -n 1 'kubectl get pods -n taprav-fri -l app=frontend'
 
 # Terminal 2 - Monitor service  
 asciinema rec demo-terminal2-service.cast
-while true; do curl -I https://devops-sk-07.lrk.si; sleep 1; done
+while true; do curl -I http://devops-sk-07.lrk.si; sleep 1; done
 
 # Terminal 3 - Commands
 asciinema rec demo-terminal3-commands.cast
