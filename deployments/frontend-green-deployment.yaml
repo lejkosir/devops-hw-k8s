@@ -1,40 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: frontend-green
   namespace: taprav-fri
 spec:
-  replicas: 1
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
-      app: backend
+      app: frontend
+      version: green
   template:
     metadata:
       labels:
-        app: backend
+        app: frontend
+        version: green
     spec:
       containers:
-      - name: backend
-        image: ghcr.io/lejkosir/devops-hw-docker-backend:sha-8c13a21
+      - name: frontend
+        image: ghcr.io/lejkosir/devops-hw-docker-frontend:sha-8c13a21
         ports:
-        - containerPort: 80
+        - containerPort: 3000
         env:
-        - name: DB_HOST
-          value: "mysql"
-        - name: DB_USER
-          value: "user"
-        - name: DB_PASSWORD
-          value: "skrito123"
-        - name: DB_NAME
-          value: "taprav-fri"
-        - name: REDIS_HOST
-          value: "redis"
-        - name: REDIS_PORT
-          value: "6379"
+        - name: BACKEND_URL
+          value: "http://backend/taprav-fri/api"
         readinessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 3000
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
@@ -43,7 +40,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 3000
           initialDelaySeconds: 15
           periodSeconds: 20
           timeoutSeconds: 3

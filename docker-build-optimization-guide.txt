@@ -1,0 +1,419 @@
+================================================================================
+DOCKER BUILD OPTIMIZATION GUIDE - Fix Double Build Problem
+================================================================================
+
+PROBLEM DESCRIPTION:
+--------------------
+Currently, the frontend Dockerfile builds the Next.js application inside the
+Docker build process (line 37: `RUN npm run build`). This creates a "double
+build" situation where:
+1. CI/CD workflow triggers Docker build
+2. Docker build process runs `npm run build` inside the container
+3. This is inefficient and can't leverage CI/CD-level caching properly
+
+The optimization is to:
+1. Build the Next.js app in CI/CD workflow BEFORE Docker build
+2. Modify Dockerfile to COPY pre-built artifacts instead of building
+3. This separates build concerns and improves caching
+
+================================================================================
+FILES TO MODIFY:
+================================================================================
+
+1. .github/workflows/publish.yaml - Add build step before Docker build
+2. frontend/Dockerfile - Remove npm run build, copy pre-built artifacts
+
+================================================================================
+EXACT CODE CHANGES:
+================================================================================
+
+FILE 1: .github/workflows/publish.yaml
+---------------------------------------
+
+CURRENT CODE (lines 34-73):
+```
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_BASE }}-${{ matrix.service.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+          flavor: |
+            latest=true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+REPLACE WITH:
+```
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # NEW: Build Next.js app for frontend BEFORE Docker build
+      - name: Build frontend application
+        if: matrix.service.name == 'frontend'
+        run: |
+          # Clone the source code repository
+          git clone -b relative https://github.com/MatejBokal/devops-spletna /tmp/devops-spletna
+          
+          # Navigate to frontend directory
+          cd /tmp/devops-spletna/code/taprav-fri/frontend
+          
+          # Install dependencies
+          npm install
+          
+          # Apply configuration changes (same as Dockerfile does)
+          sed -i "s|destination: 'http://localhost:80/taprav-fri/api/:path\\*'|destination: 'http://backend:80/taprav-fri/api/:path*'|" next.config.ts
+          
+          # Build the Next.js application
+          npm run build
+          
+          # Create build artifacts directory in workspace
+          mkdir -p ${{ github.workspace }}/frontend-build-artifacts
+          
+          # Copy built application to workspace (will be available for Docker build)
+          cp -r . ${{ github.workspace }}/frontend-build-artifacts/
+          
+          # Also copy the modified server.js if it exists
+          # (The sed commands for server.js will be handled in Dockerfile if needed)
+
+      # NEW: Build backend (if needed in future, currently backend doesn't need pre-build)
+      # - name: Build backend application
+      #   if: matrix.service.name == 'backend'
+      #   run: |
+      #     # Add backend build steps here if needed
+      #     echo "Backend build not needed"
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_BASE }}-${{ matrix.service.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+          flavor: |
+            latest=true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+IMPORTANT NOTES FOR WORKFLOW:
+- The build step only runs for frontend (backend doesn't need this optimization)
+- Build artifacts are saved to `${{ github.workspace }}/frontend-build-artifacts/`
+- This directory will be available in the Docker build context
+
+================================================================================
+
+FILE 2: frontend/Dockerfile
+----------------------------
+
+CURRENT CODE (entire file):
+```
+# build stage
+FROM node:lts AS build
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y openssl git unzip curl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone -b relative https://github.com/MatejBokal/devops-spletna .
+
+RUN mkdir -p /srv/frontend && \
+    cp -r code/taprav-fri/frontend/* /srv/frontend && \
+    chown -R node:node /srv/frontend
+
+WORKDIR /srv/frontend
+
+RUN npm install
+
+RUN sed -i "s|destination: 'http://localhost:80/taprav-fri/api/:path\\*'|destination: 'http://backend:80/taprav-fri/api/:path*'|" next.config.ts
+
+# http namesto https
+RUN sed -i "s|require('https')|require('http')|" /srv/frontend/server.js && \
+    sed -i "/const httpsOptions = {/,/};/d" /srv/frontend/server.js && \
+    sed -i "s|createServer(httpsOptions,|createServer(|" /srv/frontend/server.js && \
+    sed -i "s|HTTPS server running on https|HTTP server running on http|" /srv/frontend/server.js
+
+# samopodpisano SPREMENI!!!
+# RUN mkdir -p /etc/ssl/localcerts && \
+#     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout /etc/ssl/localcerts/nextjs.key \
+#     -out /etc/ssl/localcerts/nextjs.crt \
+#     -subj "/CN=localhost" && \
+#     chown node:node /etc/ssl/localcerts/nextjs.key && \
+#     chmod 600 /etc/ssl/localcerts/nextjs.key
+
+RUN npm run build
+
+
+# runtime stage (distroless)
+FROM gcr.io/distroless/nodejs20
+
+WORKDIR /srv/frontend
+
+# copy everything needed from build stage
+COPY --from=build /srv/frontend /srv/frontend
+
+# ne root (distroless already runs as non-root)
+# USER node
+
+# forward
+EXPOSE 3000
+
+CMD ["server.js"]
+```
+
+REPLACE WITH:
+```
+# build stage - now just prepares and copies pre-built artifacts
+FROM node:lts AS build
+
+WORKDIR /app
+
+# Copy pre-built frontend artifacts from CI/CD build step
+# These artifacts are in frontend-build-artifacts/ directory (created by CI/CD)
+COPY frontend-build-artifacts /srv/frontend
+
+WORKDIR /srv/frontend
+
+# Apply server.js modifications (if not already done in CI/CD)
+# http namesto https
+RUN sed -i "s|require('https')|require('http')|" /srv/frontend/server.js && \
+    sed -i "/const httpsOptions = {/,/};/d" /srv/frontend/server.js && \
+    sed -i "s|createServer(httpsOptions,|createServer(|" /srv/frontend/server.js && \
+    sed -i "s|HTTPS server running on https|HTTP server running on http|" /srv/frontend/server.js || true
+
+# Note: npm install and npm run build are NO LONGER needed here
+# The app is already built by CI/CD workflow
+
+
+# runtime stage (distroless)
+FROM gcr.io/distroless/nodejs20
+
+WORKDIR /srv/frontend
+
+# copy everything needed from build stage
+COPY --from=build /srv/frontend /srv/frontend
+
+# ne root (distroless already runs as non-root)
+# USER node
+
+# forward
+EXPOSE 3000
+
+CMD ["server.js"]
+```
+
+ALTERNATIVE APPROACH (if frontend-build-artifacts directory structure is different):
+If the CI/CD creates a different structure, you might need to adjust the COPY path.
+The key is: COPY the pre-built .next folder and necessary files.
+
+================================================================================
+CRITICAL CONSIDERATIONS:
+================================================================================
+
+1. BUILD CONTEXT:
+   - The Docker build context is `./frontend` (from workflow: context: ./frontend)
+   - The CI/CD creates artifacts in `${{ github.workspace }}/frontend-build-artifacts/`
+   - Docker build context needs access to this directory
+   - SOLUTION: Either:
+     a) Change build context to parent directory and adjust paths
+     b) Copy artifacts into ./frontend/ directory before Docker build
+     c) Use a different approach
+
+2. RECOMMENDED APPROACH - Copy artifacts into build context:
+   Modify the workflow to copy artifacts into the frontend directory:
+
+   In workflow, after building:
+   ```
+   # Copy built application into frontend/ directory (Docker build context)
+   cp -r /tmp/devops-spletna/code/taprav-fri/frontend/* ${{ github.workspace }}/frontend/
+   ```
+
+   Then Dockerfile can simply:
+   ```
+   COPY . /srv/frontend
+   ```
+
+3. SERVER.JS MODIFICATIONS:
+   - The sed commands for server.js might fail if file doesn't exist or is different
+   - Add `|| true` to prevent build failure, or verify file exists first
+   - Alternatively, do ALL modifications in CI/CD step
+
+================================================================================
+RECOMMENDED FINAL WORKFLOW CHANGE:
+================================================================================
+
+Replace the "Build frontend application" step with this improved version:
+
+```
+      - name: Build frontend application
+        if: matrix.service.name == 'frontend'
+        run: |
+          # Clone the source code repository
+          git clone -b relative https://github.com/MatejBokal/devops-spletna /tmp/devops-spletna
+          
+          # Navigate to frontend directory
+          cd /tmp/devops-spletna/code/taprav-fri/frontend
+          
+          # Install dependencies
+          npm install
+          
+          # Apply configuration changes
+          sed -i "s|destination: 'http://localhost:80/taprav-fri/api/:path\\*'|destination: 'http://backend:80/taprav-fri/api/:path*'|" next.config.ts
+          
+          # Apply server.js modifications BEFORE build
+          sed -i "s|require('https')|require('http')|" server.js && \
+          sed -i "/const httpsOptions = {/,/};/d" server.js && \
+          sed -i "s|createServer(httpsOptions,|createServer(|" server.js && \
+          sed -i "s|HTTPS server running on https|HTTP server running on http|" server.js || true
+          
+          # Build the Next.js application
+          npm run build
+          
+          # Copy built application into frontend/ directory (Docker build context)
+          # This makes it available for Docker COPY command
+          cp -r . ${{ github.workspace }}/frontend/
+```
+
+================================================================================
+RECOMMENDED FINAL DOCKERFILE:
+================================================================================
+
+```
+# build stage - copies pre-built artifacts
+FROM node:lts AS build
+
+WORKDIR /srv/frontend
+
+# Copy pre-built frontend (built by CI/CD, copied to frontend/ directory)
+# The entire frontend directory with .next build folder is copied
+COPY . /srv/frontend
+
+# No npm install or npm run build needed - already done in CI/CD
+# No sed commands needed - already done in CI/CD
+
+
+# runtime stage (distroless)
+FROM gcr.io/distroless/nodejs20
+
+WORKDIR /srv/frontend
+
+# copy everything needed from build stage
+COPY --from=build /srv/frontend /srv/frontend
+
+# forward
+EXPOSE 3000
+
+CMD ["server.js"]
+```
+
+================================================================================
+VERIFICATION STEPS:
+================================================================================
+
+After making changes, verify:
+
+1. CI/CD workflow runs successfully
+2. Frontend build step completes without errors
+3. Docker build completes faster (no npm install/build inside)
+4. Final Docker image contains .next folder (built app)
+5. Application runs correctly in container
+6. No "double build" - check logs to confirm npm run build only runs once
+
+================================================================================
+POTENTIAL ISSUES & SOLUTIONS:
+================================================================================
+
+ISSUE: "frontend-build-artifacts directory not found"
+SOLUTION: Use the recommended approach - copy directly to frontend/ directory
+
+ISSUE: "server.js modifications fail"
+SOLUTION: Do all modifications in CI/CD step, remove from Dockerfile
+
+ISSUE: ".next folder missing in final image"
+SOLUTION: Verify COPY command includes .next folder, check build output
+
+ISSUE: "Application doesn't start"
+SOLUTION: Verify all necessary files are copied, check CMD path is correct
+
+ISSUE: "Build context doesn't include built files"
+SOLUTION: Ensure files are copied to frontend/ directory before Docker build step
+
+================================================================================
+SUMMARY:
+================================================================================
+
+CHANGES:
+1. Add "Build frontend application" step in CI/CD workflow BEFORE Docker build
+2. Remove `npm install` and `npm run build` from Dockerfile
+3. Change Dockerfile to COPY pre-built artifacts instead of building
+4. Move all sed modifications to CI/CD step
+
+BENEFITS:
+- Build happens once (in CI/CD)
+- Better caching (CI/CD can cache node_modules)
+- Faster Docker builds (no build process inside)
+- Clearer separation of concerns
+
+================================================================================
+END OF GUIDE
+================================================================================
