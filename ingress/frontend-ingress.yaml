@@ -7,8 +7,7 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
     # Force HTTPS redirect
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    # Cert-manager will automatically provision the certificate
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Note: Certificate is managed explicitly via Certificate resource (not auto-created)
 spec:
   tls:
   - hosts:
