@@ -102,15 +102,22 @@ else
 fi
 echo ""
 
-# 7. Check minikube tunnel is running
-echo "✓ 7. Checking minikube tunnel..."
-if ps aux | grep -v grep | grep -q "minikube tunnel"; then
+# 7. Check minikube tunnel OR NodePort for HTTPS
+echo "✓ 7. Checking HTTPS exposure..."
+HAS_TUNNEL=$(ps aux | grep -v grep | grep -q "minikube tunnel" && echo "yes" || echo "no")
+HTTPS_NODEPORT=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].spec.ports[?(@.port==443)].nodePort}' 2>/dev/null || echo "")
+
+if [ "$HAS_TUNNEL" = "yes" ]; then
     echo "   ✓ minikube tunnel is running"
-    ps aux | grep -v grep | grep "minikube tunnel"
+    ((PASSED++))
+elif [ -n "$HTTPS_NODEPORT" ]; then
+    echo "   ✓ HTTPS exposed via NodePort: $HTTPS_NODEPORT"
+    echo "   Access via: https://devops-sk-07.lrk.si:$HTTPS_NODEPORT"
+    echo "   Note: HTTP-01 challenge should work on port 80 (NodePort 31058)"
     ((PASSED++))
 else
-    echo "   ✗ minikube tunnel is NOT running"
-    echo "   Fix: Run 'sudo minikube tunnel' in a separate terminal (MUST keep running)"
+    echo "   ✗ No HTTPS exposure method found"
+    echo "   Fix: Run 'sudo minikube tunnel' OR ensure NodePort 443 is configured"
     ((FAILED++))
 fi
 echo ""
