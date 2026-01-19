@@ -102,44 +102,51 @@ else
 fi
 echo ""
 
-# 7. Check minikube tunnel OR NodePort for HTTPS
+# 7. Check LoadBalancer for HTTPS
 echo "✓ 7. Checking HTTPS exposure..."
-HAS_TUNNEL=$(ps aux | grep -v grep | grep -q "minikube tunnel" && echo "yes" || echo "no")
-HTTPS_NODEPORT=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].spec.ports[?(@.port==443)].nodePort}' 2>/dev/null || echo "")
+INGRESS_SVC_TYPE=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].spec.type}' 2>/dev/null || echo "None")
+EXTERNAL_IP=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
 
-if [ "$HAS_TUNNEL" = "yes" ]; then
-    echo "   ✓ minikube tunnel is running"
-    ((PASSED++))
-elif [ -n "$HTTPS_NODEPORT" ]; then
-    echo "   ✓ HTTPS exposed via NodePort: $HTTPS_NODEPORT"
-    echo "   Access via: https://devops-sk-07.lrk.si:$HTTPS_NODEPORT"
-    echo "   Note: HTTP-01 challenge should work on port 80 (NodePort 31058)"
-    ((PASSED++))
+if [ "$INGRESS_SVC_TYPE" = "LoadBalancer" ]; then
+    if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "<pending>" ]; then
+        echo "   ✓ Ingress service is LoadBalancer with IP: $EXTERNAL_IP"
+        echo "   ✓ HTTPS should be accessible via: https://devops-sk-07.lrk.si"
+        ((PASSED++))
+    else
+        echo "   ⚠ Ingress service is LoadBalancer but IP is pending"
+        echo "   Note: On minikube, run 'sudo minikube tunnel' to get external IP"
+        echo "   Note: On cloud providers, wait for LoadBalancer to provision"
+        ((FAILED++))
+    fi
 else
-    echo "   ✗ No HTTPS exposure method found"
-    echo "   Fix: Run 'sudo minikube tunnel' OR ensure NodePort 443 is configured"
+    echo "   ✗ Ingress service type is: $INGRESS_SVC_TYPE (should be LoadBalancer)"
+    echo "   Fix: Change ingress controller service to LoadBalancer type"
+    echo "   Run: kubectl patch svc -n ingress-nginx ingress-nginx-controller -p '{\"spec\":{\"type\":\"LoadBalancer\"}}'"
     ((FAILED++))
 fi
 echo ""
 
-# 8. Check Ingress service is exposed (LoadBalancer or NodePort)
-echo "✓ 8. Checking Ingress service exposure..."
-INGRESS_SVC=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].spec.type}' 2>/dev/null || echo "None")
-if [ "$INGRESS_SVC" = "LoadBalancer" ]; then
-    EXTERNAL_IP=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-    if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "<pending>" ]; then
-        echo "   ✓ Ingress service is LoadBalancer with IP: $EXTERNAL_IP"
-        ((PASSED++))
-    else
-        echo "   ⚠ Ingress service is LoadBalancer but IP is pending (tunnel should fix this)"
-        ((FAILED++))
-    fi
-elif [ "$INGRESS_SVC" = "NodePort" ]; then
-    echo "   ⚠ Ingress service is NodePort (may work, but tunnel recommended for HTTPS)"
+# 8. Check ports 80 and 443 are accessible
+echo "✓ 8. Checking port accessibility..."
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://devops-sk-07.lrk.si 2>/dev/null || echo "000")
+HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -k https://devops-sk-07.lrk.si 2>/dev/null || echo "000")
+
+if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "308" ] || [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then
+    echo "   ✓ Port 80 (HTTP) is accessible (status: $HTTP_STATUS)"
     ((PASSED++))
 else
-    echo "   ✗ Ingress service type: $INGRESS_SVC (should be LoadBalancer)"
+    echo "   ✗ Port 80 (HTTP) is NOT accessible (status: $HTTP_STATUS)"
+    echo "   Fix: Ensure LoadBalancer has external IP and port 80 is routed"
     ((FAILED++))
+fi
+
+if [ "$HTTPS_STATUS" = "200" ] || [ "$HTTPS_STATUS" = "308" ] || [ "$HTTPS_STATUS" = "301" ] || [ "$HTTPS_STATUS" = "302" ]; then
+    echo "   ✓ Port 443 (HTTPS) is accessible (status: $HTTPS_STATUS)"
+    ((PASSED++))
+else
+    echo "   ⚠ Port 443 (HTTPS) is NOT accessible (status: $HTTPS_STATUS)"
+    echo "   Note: This is expected before certificate is issued"
+    ((PASSED++))
 fi
 echo ""
 

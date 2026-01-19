@@ -7,6 +7,7 @@ Web stack deployment using Kubernetes
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Complete Deployment Instructions](#complete-deployment-instructions)
+- [School VM Deployment](#school-vm-deployment) ⭐
 - [Secret Management](#secret-management)
 - [TLS / HTTPS Configuration](#tls--https-configuration)
 - [Health Probes Configuration](#health-probes-configuration)
@@ -52,10 +53,27 @@ The application consists of **four main services**:
 
 - Kubernetes cluster (tested on minikube and standard K8s clusters)
 - Nginx Ingress Controller installed
+- **Ingress controller service configured as LoadBalancer** (required for TLS/HTTPS)
+  - On minikube: Run `sudo minikube tunnel` after configuring LoadBalancer
+  - On cloud providers: LoadBalancer will automatically provision
 - cert-manager installed (for TLS)
 - Domain name pointing to ingress controller's public IP (`devops-sk-07.lrk.si`)
 - Ports 80 and 443 accessible (for HTTP-01 challenge)
 - `kubectl` installed and configured
+
+---
+
+## School VM Deployment
+
+**For deploying on the school VM, see the dedicated guide:**
+
+👉 **[SCHOOL-VM-DEPLOYMENT.md](SCHOOL-VM-DEPLOYMENT.md)** - Step-by-step instructions optimized for the school VM environment.
+
+The guide includes:
+- Quick deployment steps
+- Complete deployment script
+- School VM-specific troubleshooting
+- Verification checklist
 
 ---
 
@@ -137,7 +155,28 @@ kubectl apply -f deployments/frontend-deployment.yaml  # Blue deployment
 kubectl apply -f deployments/frontend-green-deployment.yaml  # Green deployment (optional for blue/green)
 ```
 
-### Step 8: Configure TLS (cert-manager)
+### Step 8: Configure Ingress Controller Service (LoadBalancer)
+
+**Important:** The ingress controller service must be configured as `LoadBalancer` type to expose ports 80 and 443 externally for TLS certificate provisioning.
+
+```bash
+# Change ingress controller service to LoadBalancer type
+kubectl patch svc -n ingress-nginx ingress-nginx-controller -p '{"spec":{"type":"LoadBalancer"}}'
+
+# On minikube, run tunnel to get external IP (run in separate terminal)
+sudo minikube tunnel
+
+# On cloud providers (AWS, GCP, Azure), the LoadBalancer will automatically provision
+# Wait for external IP to be assigned:
+kubectl get svc -n ingress-nginx ingress-nginx-controller -w
+```
+
+**Note:** 
+- On **minikube**: You need to run `sudo minikube tunnel` in a separate terminal to assign an external IP to the LoadBalancer service.
+- On **cloud providers**: The LoadBalancer will automatically provision and assign an external IP.
+- Ensure your domain (`devops-sk-07.lrk.si`) DNS points to the external IP of the LoadBalancer.
+
+### Step 9: Configure TLS (cert-manager)
 
 ```bash
 # Apply ClusterIssuer (requires cluster admin)
@@ -147,13 +186,13 @@ kubectl apply -f cert-manager/cluster-issuer.yaml
 kubectl apply -f cert-manager/frontend-certificate.yaml
 ```
 
-### Step 9: Deploy Ingress
+### Step 10: Deploy Ingress
 
 ```bash
 kubectl apply -f ingress/frontend-ingress.yaml
 ```
 
-### Step 10: Verify Deployment
+### Step 11: Verify Deployment
 
 ```bash
 # Check all pods are running
@@ -205,6 +244,24 @@ TLS is configured using **cert-manager** with **Let's Encrypt**:
 - Let's Encrypt production certificates
 - Automatic certificate renewal (90-day lifecycle)
 - HTTP-01 challenge (requires port 80 to be accessible)
+
+### LoadBalancer Requirement
+
+**Important:** The ingress controller service must be configured as `LoadBalancer` type to expose ports 80 and 443 externally. This is required for:
+- Let's Encrypt HTTP-01 challenge (port 80)
+- HTTPS access (port 443)
+
+To configure the ingress controller as LoadBalancer:
+```bash
+# Use the helper script
+./setup-loadbalancer.sh
+
+# Or manually:
+kubectl patch svc -n ingress-nginx ingress-nginx-controller -p '{"spec":{"type":"LoadBalancer"}}'
+
+# On minikube, run tunnel in separate terminal:
+sudo minikube tunnel
+```
 
 ### Components
 
@@ -657,6 +714,19 @@ All resources deployed in dedicated namespace (`taprav-fri`) for:
 
 ## Troubleshooting
 
+### LoadBalancer Issues
+
+**External IP is pending:**
+- On **minikube**: Run `sudo minikube tunnel` in a separate terminal
+- On **cloud providers**: Wait for LoadBalancer provisioning (can take 1-5 minutes)
+- Check service status: `kubectl get svc -n ingress-nginx ingress-nginx-controller`
+
+**Ports 80/443 not accessible:**
+- Verify LoadBalancer has external IP: `kubectl get svc -n ingress-nginx ingress-nginx-controller`
+- Ensure DNS points to the external IP: `nslookup devops-sk-07.lrk.si`
+- Check firewall rules allow ports 80 and 443
+- On minikube, ensure `minikube tunnel` is running
+
 ### Certificate Issues
 
 If certificate is not issued:
@@ -664,6 +734,11 @@ If certificate is not issued:
 kubectl describe certificate frontend-tls-cert -n taprav-fri
 kubectl logs -n cert-manager -l app=cert-manager
 ```
+
+**Common certificate errors:**
+- **HTTP-01 challenge fails**: Ensure port 80 is accessible and DNS points to LoadBalancer IP
+- **Rate limiting**: Let's Encrypt has rate limits (5 certs per domain per week). Use staging issuer for testing
+- **DNS not propagated**: Wait for DNS changes to propagate (can take up to 48 hours)
 
 ### Pod Not Starting
 
@@ -727,6 +802,8 @@ kubectl describe ingress frontend-ingress -n taprav-fri
 ├── volumes/                 # Persistent volume claims
 │   └── mysql-pvc.yaml
 ├── deploy-tls.sh            # TLS deployment script
+├── setup-loadbalancer.sh    # Configure ingress controller as LoadBalancer
+├── pre-certificate-checklist.sh  # Pre-deployment checks for TLS
 └── README.md                # This file
 ```
 
