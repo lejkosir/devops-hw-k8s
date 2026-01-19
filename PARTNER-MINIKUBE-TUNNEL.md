@@ -1,159 +1,85 @@
-# Using Partner's Minikube Profile
+# Partner: Test Minikube Tunnel
 
-## Yes, If Your Partner Started the Cluster
+## Quick Test
 
-If your partner started the minikube cluster, they have the minikube profile/config. Here are your options:
+If you started the minikube cluster, you should have the minikube profile. Test if `minikube tunnel` works:
 
-## Option 1: Partner Runs `minikube tunnel` (Temporary Solution)
+### Step 1: Check if you have the profile
 
-**Your partner can run:**
+```bash
+minikube profile list
+```
+
+If you see a profile (usually "minikube"), continue. If not, let your partner know.
+
+### Step 2: Start minikube tunnel
+
+**Option A: Run in background (recommended)**
+```bash
+sudo nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
+```
+
+**Option B: Run in foreground (keep terminal open)**
 ```bash
 sudo minikube tunnel
 ```
 
-**Important considerations:**
-- ✅ Will work immediately (they have the profile)
-- ⚠️ Must stay running continuously
-- ⚠️ If they disconnect/close terminal, tunnel stops
-- ⚠️ LoadBalancer IP goes back to `<pending>` when tunnel stops
-- ⚠️ Not ideal for long-term use
+### Step 3: Verify it works
 
-**Better approach:** Run it in background so it persists:
+**In another terminal, check if LoadBalancer got an IP:**
 ```bash
-# Partner runs this:
-sudo nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
+kubectl get svc -n ingress-nginx ingress-nginx-controller
+```
 
-# Check if it's running:
+**Expected result:**
+- `EXTERNAL-IP` should change from `<pending>` to an IP address (usually `127.0.0.1` or similar)
+- This should happen within 10-30 seconds
+
+### Step 4: Check if tunnel is running
+
+```bash
+# Check if tunnel process is running
 ps aux | grep "minikube tunnel"
 
-# Check logs:
+# Check tunnel logs (if ran in background)
 tail -f /tmp/minikube-tunnel.log
 ```
 
-## Option 2: Share Minikube Config (Better Solution)
+## Success Indicators
 
-**Your partner can share their minikube profile with you:**
+✅ `minikube profile list` shows a profile  
+✅ Tunnel starts without errors  
+✅ LoadBalancer `EXTERNAL-IP` is not `<pending>`  
+✅ Tunnel process stays running
 
-### Step 1: Partner Copies Their Minikube Config
+## If It Works
 
+**Keep the tunnel running!** The LoadBalancer needs it to stay active.
+
+**To keep it running in background:**
 ```bash
-# Partner runs this to create a tarball of their minikube config
-cd ~
-tar -czf minikube-config.tar.gz .minikube/
-
-# Or if started by root:
-sudo tar -czf /tmp/minikube-config.tar.gz /root/.minikube/
+# Already done if you used Option A above
+# Check it's still running:
+ps aux | grep "minikube tunnel"
 ```
 
-### Step 2: Transfer to Your Account
-
+**To stop it later:**
 ```bash
-# Partner copies it to a shared location or transfers it
-# For example, if you share the same VM:
-sudo cp /root/.minikube /home/mbokal/.minikube -r
-# Or
-sudo chown -R mbokal:mbokal /home/mbokal/.minikube
+sudo pkill -f "minikube tunnel"
 ```
 
-### Step 3: You Use the Config
+## If It Doesn't Work
 
-```bash
-# Set MINIKUBE_HOME to point to the config
-export MINIKUBE_HOME=~/.minikube
+If you get errors or the LoadBalancer stays `<pending>`, let your partner know and we'll use MetalLB instead.
 
-# Or use it directly
-sudo MINIKUBE_HOME=~/.minikube minikube tunnel
-```
+## Troubleshooting
 
-## Option 3: Use Root's Minikube Config (If Started by Root)
+**Tunnel dies immediately:**
+- Check logs: `tail -20 /tmp/minikube-tunnel.log`
+- Verify profile exists: `minikube profile list`
+- Try: `sudo minikube tunnel --alsologtostderr` for more details
 
-**If the cluster was started by root (sudo), you can use root's config directly:**
-
-```bash
-# Use root's minikube config directly (DON'T copy it)
-sudo MINIKUBE_HOME=/root/.minikube minikube tunnel
-```
-
-**If that doesn't work, check what profile name exists:**
-```bash
-# Check what profiles exist
-bash check-minikube-profile.sh
-
-# Or manually:
-sudo ls -la /root/.minikube/profiles/
-
-# Then use the actual profile name:
-sudo MINIKUBE_HOME=/root/.minikube minikube tunnel -p <actual-profile-name>
-```
-
-**Note:** Copying the config sometimes doesn't work due to minikube version differences or internal references. Using `MINIKUBE_HOME` directly is more reliable.
-
-## Option 4: Check Who Actually Started It
-
-**First, figure out who started the cluster:**
-
-```bash
-# Check if root has minikube config
-sudo ls -la /root/.minikube/
-
-# Check your partner's user (replace 'partner-username' with actual username)
-ls -la /home/partner-username/.minikube/
-
-# Check your user
-ls -la ~/.minikube/
-```
-
-**Whoever has the `.minikube` directory is the one who started it.**
-
-## Recommended Approach
-
-### For Immediate Testing:
-1. **Partner runs `minikube tunnel`** (or you use root's config)
-2. Verify LoadBalancer gets IP
-3. Deploy TLS certificate
-4. Test HTTPS
-
-### For Long-term Solution:
-1. **Copy minikube config to your account** (Option 2 or 3)
-2. Or **install MetalLB** (works for everyone, no tunnel needed)
-3. Or **set up a systemd service** to keep tunnel running
-
-## Quick Test: Use Root's Config
-
-**Try this first (easiest):**
-```bash
-# Check if root has the config
-sudo ls -la /root/.minikube/
-
-# If yes, use it:
-sudo MINIKUBE_HOME=/root/.minikube minikube tunnel
-```
-
-**In another terminal, check if it works:**
-```bash
-watch kubectl get svc -n ingress-nginx ingress-nginx-controller
-```
-
-If the EXTERNAL-IP changes from `<pending>` to an IP, it's working!
-
-## Alternative: MetalLB (Works for Everyone)
-
-**If sharing config is complicated, use MetalLB instead:**
-- ✅ Works for all users
-- ✅ No need for tunnel
-- ✅ Persistent (doesn't need to stay running)
-- ✅ More production-like
-
-```bash
-bash install-metallb.sh
-```
-
-## Summary
-
-**Yes, if your partner started it:**
-- They can run `minikube tunnel` and it will work
-- But it needs to stay running
-- Better: share the config so you can use it too
-- Or: use MetalLB (works for everyone)
-
-**Quick test:** Try `sudo MINIKUBE_HOME=/root/.minikube minikube tunnel` first - this often works if the cluster was started with sudo.
+**LoadBalancer still pending after 30 seconds:**
+- Check tunnel is running: `ps aux | grep "minikube tunnel"`
+- Check tunnel logs for errors
+- Verify service type: `kubectl get svc -n ingress-nginx ingress-nginx-controller`
