@@ -8,48 +8,51 @@
 
 **This is REQUIRED for LoadBalancer to work on minikube!**
 
-**First, check if minikube is actually running:**
+**First, try to make minikube tunnel work:**
 ```bash
-# Run diagnostics
-bash fix-minikube-tunnel.sh
+# Run diagnostics to understand the situation
+bash try-minikube-tunnel.sh
 ```
 
-**If minikube profile is not found, try:**
-```bash
-# Check what profiles exist
-minikube profile list
+**Even if you get "profile not found" error, try these (in order):**
 
-# Check if minikube is running
-minikube status
+1. **Try minikube tunnel directly** (it might work despite the error):
+   ```bash
+   sudo minikube tunnel
+   ```
+   **Check in another terminal if it actually works:**
+   ```bash
+   watch kubectl get svc -n ingress-nginx ingress-nginx-controller
+   ```
+   The tunnel might work even if it complains about the profile!
 
-# Try starting minikube if it's not running
-minikube start
-```
+2. **If cluster was started by root/admin:**
+   ```bash
+   sudo MINIKUBE_HOME=/root/.minikube minikube tunnel
+   ```
 
-**Then start tunnel:**
-```bash
-# Run this in a separate terminal (keep it running)
-sudo minikube tunnel
+3. **Try with environment variable:**
+   ```bash
+   sudo -E minikube tunnel
+   ```
 
-# Or with a specific profile (if needed)
-sudo minikube tunnel -p <profile-name>
-```
-
-**Or run in background:**
-```bash
-# Start tunnel in background
-sudo nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
-
-# Check if it's running
-ps aux | grep "minikube tunnel"
-
-# View logs if needed
-tail -f /tmp/minikube-tunnel.log
-```
+4. **Run in background and check logs:**
+   ```bash
+   sudo nohup minikube tunnel --alsologtostderr > /tmp/minikube-tunnel.log 2>&1 &
+   
+   # Check if it's running
+   ps aux | grep "minikube tunnel"
+   
+   # Check logs
+   tail -f /tmp/minikube-tunnel.log
+   
+   # Check if LoadBalancer got IP
+   kubectl get svc -n ingress-nginx ingress-nginx-controller
+   ```
 
 **⚠ Keep this running!** If you stop `minikube tunnel`, the LoadBalancer external IP will go back to `<pending>`.
 
-**If minikube tunnel doesn't work**, see "Alternative: MetalLB" section below.
+**If minikube tunnel still doesn't work after trying all above**, see "Alternative: MetalLB" section below.
 
 ### Step 2: Configure Service as LoadBalancer
 
@@ -125,27 +128,40 @@ kubectl get certificate -n taprav-fri -w
 
 ## Alternative: MetalLB (if minikube tunnel doesn't work)
 
-If `minikube tunnel` doesn't work (profile not found, etc.), you can use MetalLB instead:
+**If `minikube tunnel` doesn't work** (profile not found, cluster started differently, etc.), **use MetalLB instead**. This is the recommended solution for your situation.
 
-### Install MetalLB
+### Quick Install with Script
 
 ```bash
-# Install MetalLB
+# Use the automated installation script
+bash install-metallb.sh
+```
+
+The script will:
+- Install MetalLB
+- Auto-detect your network IP range
+- Configure the IP address pool
+- Verify everything is working
+
+### Manual Install
+
+If you prefer to install manually:
+
+```bash
+# 1. Install MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.5/config/manifests/metallb-native.yaml
 
-# Wait for MetalLB to be ready
+# 2. Wait for MetalLB to be ready
 kubectl wait --namespace metallb-system \
   --for=condition=ready pod \
   --selector=app=metallb \
-  --timeout=90s
-```
+  --timeout=120s
 
-### Configure MetalLB IP Pool
+# 3. Get your node IP to determine the range
+kubectl get nodes -o wide
 
-You need to configure an IP address pool. For the school VM, you'll need to know the IP range:
-
-```bash
-# Create IP pool (replace with your VM's IP range)
+# 4. Configure IP pool (replace with your network range)
+# For minikube, typically use: 192.168.49.100-192.168.49.200
 cat <<EOF | kubectl apply -f -
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -167,9 +183,7 @@ spec:
 EOF
 ```
 
-**Note:** Contact your instructor for the correct IP range to use.
-
-After MetalLB is configured, the LoadBalancer should get an external IP automatically.
+**After MetalLB is configured, the LoadBalancer should get an external IP automatically within 30 seconds.**
 
 ## Troubleshooting
 
