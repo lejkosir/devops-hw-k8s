@@ -9,6 +9,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     # Note: Certificate is managed explicitly via Certificate resource (not auto-created)
 spec:
+  ingressClassName: nginx
   tls:
   - hosts:
     - devops-sk-07.lrk.si
