@@ -73,6 +73,10 @@ The application consists of **four main services**:
 
 👉 **[ENABLE-TLS.md](ENABLE-TLS.md)** - Quick guide to enable HTTPS/TLS on an already deployed application.
 
+**Running on minikube?**
+
+👉 **[MINIKUBE-TLS-SETUP.md](MINIKUBE-TLS-SETUP.md)** - Special instructions for minikube (requires `minikube tunnel`).
+
 The guides include:
 - Quick deployment steps
 - Complete deployment script

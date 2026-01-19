@@ -12,17 +12,31 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller
 
 # Change to LoadBalancer (if not already)
 kubectl patch svc -n ingress-nginx ingress-nginx-controller -p '{"spec":{"type":"LoadBalancer"}}'
+```
 
-# Wait for external IP (watch the service)
+**⚠ IMPORTANT: If you're on minikube (which the diagnostic shows), you MUST run `minikube tunnel`:**
+
+```bash
+# Run this in a SEPARATE terminal (keep it running)
+sudo minikube tunnel
+```
+
+**Why?** On minikube, LoadBalancer services don't automatically get external IPs. The `minikube tunnel` command creates a network route that assigns external IPs to LoadBalancer services.
+
+**After running `minikube tunnel`, check the service:**
+```bash
+# In another terminal, watch the service
 kubectl get svc -n ingress-nginx ingress-nginx-controller -w
 ```
+
+You should see the EXTERNAL-IP change from `<pending>` to an IP address (usually `127.0.0.1` or a local IP).
 
 **Or use the helper script:**
 ```bash
 bash setup-loadbalancer.sh
 ```
 
-**Wait 1-5 minutes** for the LoadBalancer to get an external IP. Press `Ctrl+C` to stop watching.
+**Note:** The script will tell you to run `minikube tunnel` if it detects minikube.
 
 ### 2. Get the External IP
 
@@ -130,38 +144,38 @@ The ingress should show:
 
 ### LoadBalancer External IP is Pending
 
-**Wait:** On school VM, this can take 1-5 minutes.
-
 **First, run diagnostics:**
 ```bash
 bash check-loadbalancer-support.sh
 ```
 
-This will show:
-- Service events (why it's pending)
-- If LoadBalancer controllers are installed
-- If other LoadBalancer services work
-- Detailed service information
+**If the diagnostic shows "minikube":**
 
-**Quick checks:**
+**You MUST run `minikube tunnel` for LoadBalancer to work on minikube!**
+
 ```bash
-# Check service status
-kubectl get svc -n ingress-nginx ingress-nginx-controller
+# Run this in a SEPARATE terminal (keep it running in background)
+sudo minikube tunnel
 
-# Check service events (shows why it's pending)
-kubectl describe svc -n ingress-nginx ingress-nginx-controller | grep -A 20 "Events:"
-
-# Check if MetalLB is installed
-kubectl get namespace metallb-system
-
-# Check if other LoadBalancer services work
-kubectl get svc --all-namespaces -o wide | grep LoadBalancer
+# Or run it in background:
+sudo nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
 ```
 
-**If still pending after 10 minutes:**
-- Check the diagnostic script output for specific errors
-- The cluster might not have a LoadBalancer controller installed
-- Contact your instructor with the diagnostic output
+**After starting `minikube tunnel`, check the service:**
+```bash
+# Wait a few seconds, then check
+kubectl get svc -n ingress-nginx ingress-nginx-controller
+
+# You should see EXTERNAL-IP change from <pending> to an IP (usually 127.0.0.1 or local IP)
+```
+
+**Why?** Minikube doesn't have a built-in LoadBalancer controller. The `minikube tunnel` command creates a network route that assigns external IPs to LoadBalancer services.
+
+**If NOT on minikube:**
+- Wait 1-5 minutes for cloud LoadBalancer provisioning
+- Check service events: `kubectl describe svc -n ingress-nginx ingress-nginx-controller | grep -A 20 "Events:"`
+- Check if MetalLB is installed: `kubectl get namespace metallb-system`
+- Contact your instructor if still pending after 10 minutes
 
 ### Certificate Not Issuing
 
