@@ -19,6 +19,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: frontend
+            name: frontend-blue
             port:
               number: 3000
