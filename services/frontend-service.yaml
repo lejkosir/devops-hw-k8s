@@ -7,7 +7,6 @@ spec:
   type: ClusterIP
   selector:
     app: frontend
-    version: blue
   ports:
     - port: 3000
       targetPort: 3000
