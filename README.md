@@ -69,9 +69,14 @@ The application consists of **four main services**:
 
 👉 **[SCHOOL-VM-DEPLOYMENT.md](SCHOOL-VM-DEPLOYMENT.md)** - Step-by-step instructions optimized for the school VM environment.
 
-The guide includes:
+**Already deployed? Just need TLS?**
+
+👉 **[ENABLE-TLS.md](ENABLE-TLS.md)** - Quick guide to enable HTTPS/TLS on an already deployed application.
+
+The guides include:
 - Quick deployment steps
 - Complete deployment script
+- TLS/HTTPS setup instructions
 - School VM-specific troubleshooting
 - Verification checklist
 
@@ -717,9 +722,13 @@ All resources deployed in dedicated namespace (`taprav-fri`) for:
 ### LoadBalancer Issues
 
 **External IP is pending:**
+- **First, run diagnostics:** `bash check-loadbalancer-support.sh`
+  - This shows service events, LoadBalancer controllers, and detailed diagnostics
 - On **minikube**: Run `sudo minikube tunnel` in a separate terminal
 - On **cloud providers**: Wait for LoadBalancer provisioning (can take 1-5 minutes)
+- On **school VM**: If pending >10 minutes, check if LoadBalancer controller is installed
 - Check service status: `kubectl get svc -n ingress-nginx ingress-nginx-controller`
+- Check service events: `kubectl describe svc -n ingress-nginx ingress-nginx-controller | grep -A 20 "Events:"`
 
 **Ports 80/443 not accessible:**
 - Verify LoadBalancer has external IP: `kubectl get svc -n ingress-nginx ingress-nginx-controller`
@@ -803,6 +812,7 @@ kubectl describe ingress frontend-ingress -n taprav-fri
 │   └── mysql-pvc.yaml
 ├── deploy-tls.sh            # TLS deployment script
 ├── setup-loadbalancer.sh    # Configure ingress controller as LoadBalancer
+├── check-loadbalancer-support.sh  # Diagnose LoadBalancer support and issues
 ├── pre-certificate-checklist.sh  # Pre-deployment checks for TLS
 └── README.md                # This file
 ```
