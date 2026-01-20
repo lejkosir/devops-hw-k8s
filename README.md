@@ -210,14 +210,7 @@ bash blue-green/deploy-green.sh sha-<commit-sha>
 
 **Result**: Instant switch with zero downtime. Blue remains running for quick rollback.
 
-**Screenshots/Recordings**: 
-- [Blue/Green Deployment Demo](screenshots/blue-green-demo.cast) - asciinema recording demonstrating zero-downtime blue/green deployment switch
-
-To play the recording:
-```bash
-# Install asciinema if needed: https://asciinema.org/docs/installation
-asciinema play screenshots/blue-green-demo.cast
-```
+**Screenshots/Recordings**: [Add links to screenshots or asciinema recordings here]
 
 ---
 
@@ -309,5 +302,5 @@ kubectl describe ingress frontend-ingress -n taprav-fri
 - **Comprehensive Health Probes**: Tuned probes for all services (HTTP for web, exec for databases)
 - **Single-Command Deployment**: `deploy.sh` automates entire deployment process
 - **SHA-Based Image Tags**: Ensures reproducible deployments
-
+- **Fixed CI/CD from last time**: No double npm build in CI/CD and docker file
 ---
