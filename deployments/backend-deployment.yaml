@@ -32,14 +32,20 @@ spec:
         - name: REDIS_PORT
           value: "6379"
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
             port: 80
           initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 5
-        livenessProbe:
-          tcpSocket:
-            port: 80
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
