@@ -100,7 +100,7 @@ echo ""
 echo -e "${YELLOW}10. Waiting for LoadBalancer external IP (this may take a few moments)...${NC}"
 for i in {1..30}; do
     EXTERNAL_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-    if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "<pending>" ]; then
+    if [ -n "$EXTERNAL_IP" ]; then
         echo -e "${GREEN}✓ LoadBalancer IP: $EXTERNAL_IP${NC}"
         break
     fi
@@ -169,9 +169,4 @@ echo "To view logs:"
 echo "  kubectl logs -n taprav-fri -l app=frontend"
 echo "  kubectl logs -n taprav-fri -l app=backend"
 echo "  kubectl logs -n taprav-fri -l app=mysql"
-echo ""
-echo "Blue/Green deployment helpers:"
-echo "  bash blue-green/switch-blue-green.sh [blue|green]"
-echo "  bash blue-green/check-version.sh"
-echo "  bash blue-green/deploy-green.sh <image-tag>"
 echo ""

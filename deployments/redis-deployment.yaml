@@ -27,8 +27,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 3
-          successThreshold: 1
-          failureThreshold: 3
         livenessProbe:
           exec:
             command:
@@ -38,5 +36,3 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 30
           timeoutSeconds: 5
-          successThreshold: 1
-          failureThreshold: 3

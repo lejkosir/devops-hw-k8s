@@ -4,10 +4,7 @@ metadata:
   name: frontend-ingress
   namespace: taprav-fri
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    # Force HTTPS redirect
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    # Note: Certificate is managed explicitly via Certificate resource (not auto-created)
 spec:
   ingressClassName: nginx
   tls:
@@ -22,6 +19,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: frontend
+            name: frontend-blue
             port:
               number: 3000
