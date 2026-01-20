@@ -210,7 +210,14 @@ bash blue-green/deploy-green.sh sha-<commit-sha>
 
 **Result**: Instant switch with zero downtime. Blue remains running for quick rollback.
 
-**Screenshots/Recordings**: [Add links to screenshots or asciinema recordings here]
+**Screenshots/Recordings**: 
+- [Blue/Green Deployment Demo](screenshots/blue-green-demo.cast) - asciinema recording demonstrating zero-downtime blue/green deployment switch
+
+To play the recording:
+```bash
+# Install asciinema if needed: https://asciinema.org/docs/installation
+asciinema play screenshots/blue-green-demo.cast
+```
 
 ---
 
