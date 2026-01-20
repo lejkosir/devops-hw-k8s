@@ -14,7 +14,7 @@ bash deploy.sh
 
 One command deploys everything. The script creates namespace, secrets, ConfigMaps, PersistentVolumes, Services, Deployments, configures Ingress as LoadBalancer, and deploys TLS certificates.
 
-**Access:** https://devops-sk-07.lrk.si (after ~2-3 minutes for certificate issuance)
+**Access:** https://devops-sk-07.lrk.si
 
 ---
 
